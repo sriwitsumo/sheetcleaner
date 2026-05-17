@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sheet Cleaner</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Thai:wght@300;400;500&family=DM+Mono:wght@400;500&family=Playfair+Display:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --ink: #1a1a18;
+  --ink-soft: #4a4a45;
+  --ink-faint: #9a9a92;
+  --paper: #f7f5f0;
+  --paper-warm: #ede9e0;
+  --paper-dark: #e0dbd0;
+  --accent: #1a73e8;
+  --accent-light: #e8f0fe;
+  --rule: rgba(26,26,24,0.1);
+  --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.04);
+}
+
+body {
+  font-family: 'Noto Sans Thai', sans-serif;
+  background: var(--paper);
+  color: var(--ink);
+  min-height: 100vh;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+header {
+  border-bottom: 1px solid var(--rule);
+  padding: 0 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 60px;
+  background: var(--paper);
+  position: sticky; top: 0; z-index: 100;
+}
+.logo {
+  font-family: 'Playfair Display', serif;
+  font-size: 18px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  display: flex; align-items: center; gap: 10px;
+}
+.logo-mark {
+  width: 28px; height: 28px;
+  border: 1.5px solid var(--ink);
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px;
+}
+.logo-sub {
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  color: var(--ink-faint);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  border-left: 1px solid var(--rule);
+  padding-left: 10px;
+  margin-left: 4px;
+}
+.header-note {
+  font-size: 12px;
+  color: var(--ink-faint);
+  font-family: 'DM Mono', monospace;
+  display: flex; align-items: center; gap: 6px;
+}
+.gemini-badge {
+  background: var(--accent-light);
+  color: var(--accent);
+  font-size: 10px;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-family: 'DM Mono', monospace;
+  font-weight: 500;
+}
+
+.container {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 3rem 2rem;
+}
+
+.section-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: 12px;
+}
+
+.drop-zone {
+  border: 1.5px dashed var(--paper-dark);
+  border-radius: 8px;
+  padding: 3rem 2rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background: white;
+  position: relative;
+  overflow: hidden;
+}
+.drop-zone::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    45deg, transparent, transparent 20px,
+    rgba(0,0,0,0.015) 20px, rgba(0,0,0,0.015) 21px
+  );
+  pointer-events: none;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+.drop-zone:hover::before, .drop-zone.drag-over::before { opacity: 0; }
+
+.drop-icon {
+  width: 48px; height: 48px;
+  margin: 0 auto 16px;
+  border: 1.5px solid var(--paper-dark);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--paper);
+  transition: all 0.2s;
+}
+.drop-zone:hover .drop-icon { border-color: var(--accent); background: white; }
+.drop-icon svg { width: 22px; height: 22px; stroke: var(--ink-soft); transition: stroke 0.2s; }
+.drop-zone:hover .drop-icon svg { stroke: var(--accent); }
+
+.drop-title { font-size: 15px; font-weight: 500; margin-bottom: 4px; }
+.drop-sub { font-size: 13px; color: var(--ink-faint); }
+
+#fileInput { display: none; }
+
+.preview-strip {
+  display: flex; gap: 10px; flex-wrap: wrap; margin-top: 16px;
+}
+.thumb-card {
+  position: relative;
+  width: 90px; height: 120px;
+  border-radius: 6px; overflow: hidden;
+  border: 1px solid var(--rule);
+  background: white;
+  box-shadow: var(--shadow);
+  animation: thumbIn 0.25s ease;
+}
+@keyframes thumbIn {
+  from { opacity: 0; transform: scale(0.9) translateY(4px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.thumb-card img { width: 100%; height: 100%; object-fit: cover; }
+.thumb-remove {
+  position: absolute; top: 4px; right: 4px;
+  width: 20px; height: 20px;
+  background: rgba(26,26,24,0.7);
+  border: none; border-radius: 50%;
+  color: white; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-family: monospace;
+  opacity: 0; transition: opacity 0.15s;
+}
+.thumb-card:hover .thumb-remove { opacity: 1; }
+
+.options-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 1.5rem 0; }
+.opt-chip {
+  display: flex; align-items: center; gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--paper-dark);
+  border-radius: 99px;
+  font-size: 13px; cursor: pointer;
+  background: white; color: var(--ink-soft);
+  transition: all 0.15s; user-select: none;
+}
+.opt-chip.on { background: var(--ink); border-color: var(--ink); color: white; }
+.opt-chip svg { width: 14px; height: 14px; }
+
+.run-btn {
+  width: 100%; padding: 14px;
+  background: var(--accent);
+  color: white; border: none; border-radius: 6px;
+  font-size: 15px; font-family: 'Noto Sans Thai', sans-serif;
+  font-weight: 500; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: all 0.15s;
+}
+.run-btn:hover:not(:disabled) { background: #1557b0; }
+.run-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+.progress-wrap { margin-top: 1.5rem; display: none; }
+.progress-track {
+  height: 2px; background: var(--paper-dark);
+  border-radius: 99px; overflow: hidden; margin-bottom: 10px;
+}
+.progress-fill {
+  height: 100%; background: var(--accent);
+  border-radius: 99px; transition: width 0.4s ease;
+}
+.progress-status {
+  font-size: 13px; color: var(--ink-faint);
+  font-family: 'DM Mono', monospace;
+  display: flex; align-items: center; gap: 8px;
+}
+.dot-pulse {
+  width: 6px; height: 6px; background: var(--accent);
+  border-radius: 50%; animation: pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.8)} }
+
+.divider { border: none; border-top: 1px solid var(--rule); margin: 2.5rem 0; }
+
+.result-page {
+  background: white; border: 1px solid var(--rule);
+  border-radius: 8px; overflow: hidden;
+  margin-bottom: 20px; box-shadow: var(--shadow);
+  animation: pageIn 0.35s ease;
+}
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.result-page-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 18px; border-bottom: 1px solid var(--rule);
+  background: var(--paper);
+}
+.result-page-title {
+  font-size: 13px; font-weight: 500;
+  display: flex; align-items: center; gap: 8px;
+}
+.file-icon {
+  width: 20px; height: 20px; background: var(--paper-dark);
+  border-radius: 3px; display: flex; align-items: center; justify-content: center;
+}
+.file-icon svg { width: 12px; height: 12px; stroke: var(--ink-soft); }
+.result-badges { display: flex; gap: 6px; }
+.pill {
+  font-size: 11px; font-family: 'DM Mono', monospace;
+  padding: 2px 8px; border-radius: 99px; border: 1px solid;
+}
+.pill-green { background: #edf5ef; color: #2d5a3d; border-color: #c5ddc9; }
+.pill-amber { background: #fdf5e6; color: #7a5200; border-color: #f0d9a0; }
+
+.result-body { padding: 20px 24px; }
+.el-block { margin-bottom: 1.25rem; }
+.el-block:last-child { margin-bottom: 0; }
+.el-label {
+  font-size: 10px; font-family: 'DM Mono', monospace;
+  letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--ink-faint); margin-bottom: 5px;
+}
+.el-heading-1 { font-size: 22px; font-weight: 500; line-height: 1.3; }
+.el-heading-2 { font-size: 18px; font-weight: 500; line-height: 1.3; }
+.el-heading-3 { font-size: 15px; font-weight: 500; line-height: 1.3; }
+.el-text { font-size: 14px; line-height: 1.8; white-space: pre-wrap; color: var(--ink); }
+.el-formula {
+  font-family: 'DM Mono', monospace; font-size: 13px;
+  background: var(--paper); padding: 10px 14px;
+  border-radius: 5px; border-left: 2px solid var(--accent); color: var(--ink);
+}
+.el-image {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px; background: var(--paper);
+  border-radius: 6px; border: 1.5px dashed var(--paper-dark);
+}
+.el-image-icon {
+  width: 36px; height: 36px; flex-shrink: 0;
+  background: var(--paper-dark); border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+}
+.el-image-icon svg { width: 18px; height: 18px; stroke: var(--ink-soft); }
+.el-image-desc { font-size: 13px; color: var(--ink); font-weight: 500; }
+.el-image-pos { font-size: 12px; color: var(--ink-faint); margin-top: 2px; font-family: 'DM Mono', monospace; }
+.el-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.el-table th {
+  text-align: left; padding: 8px 10px;
+  background: var(--paper); border: 1px solid var(--paper-dark);
+  font-weight: 500; font-size: 12px;
+}
+.el-table td { padding: 7px 10px; border: 1px solid var(--paper-dark); }
+.el-table tr:nth-child(even) td { background: var(--paper); }
+.el-sep { border: none; border-top: 1px solid var(--rule); margin: 14px 0; }
+
+.action-row { display: flex; gap: 8px; margin-top: 1.5rem; flex-wrap: wrap; }
+.action-btn {
+  flex: 1; min-width: 160px; padding: 10px 16px;
+  background: white; border: 1px solid var(--paper-dark);
+  border-radius: 5px; font-size: 13px;
+  font-family: 'Noto Sans Thai', sans-serif;
+  cursor: pointer; color: var(--ink-soft);
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  transition: all 0.15s;
+}
+.action-btn:hover { background: var(--paper); border-color: var(--ink); color: var(--ink); }
+.action-btn svg { width: 14px; height: 14px; stroke: currentColor; }
+
+.error-box {
+  background: #fff5f5; border: 1px solid #fecaca;
+  border-radius: 6px; padding: 14px 16px;
+  font-size: 13px; color: #b91c1c;
+  margin-top: 1rem; display: none;
+  font-family: 'DM Mono', monospace;
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">✦</div>
+    Sheet Cleaner
+    <span class="logo-sub">AI Document Processor</span>
+  </div>
+  <div class="header-note">
+    <span class="gemini-badge">Gemini 2.5 Flash-Lite</span>
+    Powered by Google AI
+  </div>
+</header>
+
+<div class="container">
+
+  <div class="section-label">อัปโหลดชีท</div>
+  <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+    <div class="drop-icon">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M4 16l4-4 4 4 4-6 4 6"/><rect x="3" y="3" width="18" height="18" rx="2"/>
+      </svg>
+    </div>
+    <div class="drop-title">วางรูปชีทเรียนที่นี่</div>
+    <div class="drop-sub">หรือคลิกเพื่อเลือกไฟล์ · รองรับ JPG, PNG · หลายรูปพร้อมกันได้</div>
+  </div>
+  <input type="file" id="fileInput" accept="image/*" multiple>
+
+  <div class="preview-strip" id="previewStrip"></div>
+
+  <div class="section-label" style="margin-top:1.5rem;">ตัวเลือก</div>
+  <div class="options-row">
+    <label class="opt-chip on" data-key="ocr">
+      <input type="checkbox" checked style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7V5a2 2 0 012-2h2M4 17v2a2 2 0 002 2h2M16 3h2a2 2 0 012 2v2M16 21h2a2 2 0 002-2v-2M8 12h8M12 8v8"/></svg>
+      แปลง text ด้วย OCR
+    </label>
+    <label class="opt-chip on" data-key="images">
+      <input type="checkbox" checked style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+      เก็บรูป/diagram
+    </label>
+    <label class="opt-chip on" data-key="layout">
+      <input type="checkbox" checked style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg>
+      จัดเรียง layout
+    </label>
+    <label class="opt-chip" data-key="math">
+      <input type="checkbox" style="display:none">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h16M12 4l-4 8 4 8"/></svg>
+      แปลงสูตรเป็น LaTeX
+    </label>
+  </div>
+
+  <button class="run-btn" id="runBtn" disabled onclick="runProcess()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+    ลบลายมือและประมวลผล
+  </button>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="progress-wrap" id="progressWrap">
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="progress-status">
+      <div class="dot-pulse"></div>
+      <span id="progressMsg">กำลังเตรียมข้อมูล...</span>
+    </div>
+  </div>
+
+  <div id="resultsWrap" style="display:none;">
+    <hr class="divider">
+    <div class="section-label">ผลลัพธ์</div>
+    <div id="resultsList"></div>
+    <div class="action-row">
+      <button class="action-btn" onclick="copyAll()">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+        คัดลอกทุกหน้า
+      </button>
+      <button class="action-btn" onclick="downloadTxt()">
+        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        ดาวน์โหลด .txt
+      </button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const files = [];
+let lastResults = [];
+
+document.querySelectorAll('.opt-chip').forEach(chip => {
+  chip.addEventListener('click', () => chip.classList.toggle('on'));
+});
+
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  addFiles([...e.dataTransfer.files].filter(f => f.type.startsWith('image/')));
+});
+document.getElementById('fileInput').addEventListener('change', e => {
+  addFiles([...e.target.files]); e.target.value = '';
+});
+
+function addFiles(newFiles) {
+  newFiles.forEach(f => { if (!files.find(x => x.name===f.name && x.size===f.size)) files.push(f); });
+  renderPreviews();
+}
+function removeFile(i) { files.splice(i,1); renderPreviews(); }
+function renderPreviews() {
+  document.getElementById('runBtn').disabled = files.length === 0;
+  document.getElementById('previewStrip').innerHTML = files.map((f,i) => {
+    const url = URL.createObjectURL(f);
+    return `<div class="thumb-card"><img src="${url}" alt="${esc(f.name)}"><button class="thumb-remove" onclick="removeFile(${i})">✕</button></div>`;
+  }).join('');
+}
+
+async function runProcess() {
+  if (!files.length) return;
+  document.getElementById('runBtn').disabled = true;
+  document.getElementById('resultsWrap').style.display = 'none';
+  document.getElementById('errorBox').style.display = 'none';
+  document.getElementById('progressWrap').style.display = 'block';
+  setProgress(10, 'กำลังส่งรูปไปประมวลผล...');
+
+  const formData = new FormData();
+  files.forEach(f => formData.append('files', f));
+
+  try {
+    setProgress(30, 'Gemini กำลังวิเคราะห์ชีท...');
+    const res = await fetch('/process', { method: 'POST', body: formData });
+    setProgress(85, 'กำลังแปลงผลลัพธ์...');
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.detail || 'เกิดข้อผิดพลาด');
+    }
+    const data = await res.json();
+    lastResults = data.pages || [];
+    setProgress(100, 'เสร็จแล้ว!');
+    setTimeout(() => {
+      document.getElementById('progressWrap').style.display = 'none';
+      renderResults(lastResults);
+      document.getElementById('runBtn').disabled = false;
+    }, 400);
+  } catch(e) {
+    document.getElementById('progressWrap').style.display = 'none';
+    const eb = document.getElementById('errorBox');
+    eb.style.display = 'block';
+    eb.textContent = '❌ ' + e.message;
+    document.getElementById('runBtn').disabled = false;
+  }
+}
+
+function setProgress(pct, msg) {
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressMsg').textContent = msg;
+}
+
+function renderResults(pages) {
+  document.getElementById('resultsWrap').style.display = 'block';
+  document.getElementById('resultsList').innerHTML = pages.map((page, pi) => {
+    const els = page.elements || [];
+    const textCount = els.filter(e => ['text','heading','formula'].includes(e.type)).length;
+    const imgCount = els.filter(e => e.type === 'image').length;
+    const elHtml = els.map((el, ei) => {
+      let inner = '';
+      if (el.type === 'heading') {
+        inner = `<div class="el-heading-${el.level||1}">${esc(el.content)}</div>`;
+      } else if (el.type === 'text') {
+        inner = `<div class="el-text">${esc(el.content)}</div>`;
+      } else if (el.type === 'image') {
+        inner = `<div class="el-image">
+          <div class="el-image-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
+          <div><div class="el-image-desc">${esc(el.description||'รูปภาพ')}</div>${el.position?`<div class="el-image-pos">ตำแหน่ง: ${esc(el.position)}</div>`:''}</div>
+        </div>`;
+      } else if (el.type === 'formula') {
+        inner = `<div class="el-formula">${esc(el.latex||el.content)}</div>`;
+      } else if (el.type === 'table') {
+        const hdrs = (el.headers||[]).map(h=>`<th>${esc(h)}</th>`).join('');
+        const rows = (el.rows||[]).map(r=>`<tr>${r.map(c=>`<td>${esc(c)}</td>`).join('')}</tr>`).join('');
+        inner = `<div style="overflow-x:auto"><table class="el-table"><thead><tr>${hdrs}</tr></thead><tbody>${rows}</tbody></table></div>`;
+      }
+      return `${ei>0?'<hr class="el-sep">':''}<div class="el-block"><div class="el-label">${el.type}</div>${inner}</div>`;
+    }).join('');
+    return `<div class="result-page">
+      <div class="result-page-header">
+        <div class="result-page-title">
+          <div class="file-icon"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+          ${esc(page.title||page.filename||'หน้า '+(pi+1))}
+        </div>
+        <div class="result-badges">
+          ${textCount?`<span class="pill pill-green">${textCount} text</span>`:''}
+          ${imgCount?`<span class="pill pill-amber">${imgCount} image</span>`:''}
+        </div>
+      </div>
+      <div class="result-body">${elHtml||'<div style="color:var(--ink-faint);font-size:13px;">ไม่พบ element</div>'}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('resultsWrap').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function extractText(pages) {
+  return pages.map(page => {
+    const title = page.title||page.filename||'';
+    const body = (page.elements||[]).map(el => {
+      if (el.type==='heading') return el.content;
+      if (el.type==='text') return el.content;
+      if (el.type==='formula') return el.latex||el.content;
+      if (el.type==='image') return `[รูปภาพ: ${el.description||''}]`;
+      if (el.type==='table') return [(el.headers||[]).join('\t'), ...(el.rows||[]).map(r=>r.join('\t'))].join('\n');
+      return '';
+    }).join('\n\n');
+    return `=== ${title} ===\n\n${body}`;
+  }).join('\n\n'+'─'.repeat(40)+'\n\n');
+}
+
+function copyAll() { navigator.clipboard.writeText(extractText(lastResults)); }
+function downloadTxt() {
+  const blob = new Blob([extractText(lastResults)], { type: 'text/plain;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'sheet-cleaned.txt'; a.click();
+}
+function esc(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+</script>
+</body>
+</html>
